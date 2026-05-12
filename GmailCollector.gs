@@ -4,20 +4,20 @@
  *
  * 方針：
  * - 本文の全文は保存しない（snippet ≤ 100文字のみ）
- * - noreply・通知・広告・メルマガを除外
- * - 社外ドメインの受信メールを優先
+ * - 自動送信・バウンス系を除外
+ * - gmail_query_extra: Gmail検索クエリをそのまま追加（例: -from:info@example.com）
+ * - gmail_keywords: カンマ区切りのキーワードをOR条件として追加（例: 加藤様,打ち合わせ）
  */
 
-// 除外するメールの特徴
+// 除外するsender（明確な自動送信・システム系のみに絞る）
 const EXCLUDE_FROM_PATTERNS = [
-  'noreply', 'no-reply', 'donotreply', 'notification', 'notifications',
-  'mailer-daemon', 'postmaster', 'bounce', 'newsletter', 'support@',
-  'info@', 'alert@', 'updates@', 'hello@', 'team@'
+  'noreply', 'no-reply', 'donotreply',
+  'mailer-daemon', 'postmaster', 'bounce'
 ];
 
 const EXCLUDE_SUBJECT_PATTERNS = [
-  '購読', 'メルマガ', 'newsletter', 'unsubscribe', '配信', 'お知らせ',
-  'ご案内', '自動送信', 'Do not reply', 'no reply'
+  'メルマガ', 'newsletter', 'unsubscribe', '購読', '自動送信',
+  'Do not reply', 'no reply'
 ];
 
 /**
@@ -27,17 +27,27 @@ function collectGmailActivities(targetDate) {
   const cards = [];
   const maxThreads = getConfigInt('max_gmail_threads', 20);
   const extraQuery = getConfigValue('gmail_query_extra', '');
+  const keywordsRaw = getConfigValue('gmail_keywords', '');
 
-  const dateForQuery = targetDate.replace(/-/g, '/');  // Gmail query format
+  // gmail_keywordsをGmail OR グループに変換
+  // 例: "加藤様,打ち合わせ" → "{加藤様 打ち合わせ}"
+  let keywordFilter = '';
+  if (keywordsRaw.trim()) {
+    const kws = keywordsRaw.split(',').map(k => k.trim()).filter(k => k);
+    if (kws.length > 0) keywordFilter = `{${kws.join(' ')}}`;
+  }
+
+  const dateForQuery = targetDate.replace(/-/g, '/');
+  const dateRange = `after:${dateForQuery} before:${getNextDayQuery(targetDate)}`;
 
   // 送信メール
-  const sentQuery = buildQuery(`in:sent after:${dateForQuery} before:${getNextDayQuery(targetDate)}`, extraQuery);
+  const sentQuery = buildQuery(`in:sent ${dateRange}`, extraQuery, keywordFilter);
   const sentCards = fetchGmailCards(sentQuery, maxThreads, 'sent_email', targetDate);
   cards.push(...sentCards);
   logInfo('collectGmailActivities', `Sent emails`, `count=${sentCards.length}, query=${sentQuery}`);
 
-  // 受信メール（社外フィルタ付き）
-  const inboxQuery = buildQuery(`in:inbox after:${dateForQuery} before:${getNextDayQuery(targetDate)}`, extraQuery);
+  // 受信メール
+  const inboxQuery = buildQuery(`in:inbox ${dateRange}`, extraQuery, keywordFilter);
   const receivedCards = fetchGmailCards(inboxQuery, maxThreads, 'received_email', targetDate);
   cards.push(...receivedCards);
   logInfo('collectGmailActivities', `Received emails`, `count=${receivedCards.length}, query=${inboxQuery}`);
@@ -169,8 +179,8 @@ function getNextDayQuery(targetDate) {
 }
 
 /**
- * クエリ文字列を組み合わせる
+ * クエリ文字列を組み合わせる（空文字は無視）
  */
-function buildQuery(base, extra) {
-  return extra ? `${base} ${extra}` : base;
+function buildQuery(base, ...parts) {
+  return [base, ...parts].filter(p => p && p.trim()).join(' ');
 }
