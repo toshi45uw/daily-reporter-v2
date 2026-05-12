@@ -36,6 +36,7 @@ const CONFIG_DEFAULTS = [
   ['max_gmail_threads', '20', '取得するGmailスレッドの最大件数'],
   ['max_drive_files', '30', '取得するDriveファイルの最大件数'],
   ['include_calendar', 'true', 'Calendarを取得するか（true/false）'],
+  ['extra_calendar_ids', '', '追加取得するカレンダーID（カンマ区切り。空欄=プライマリのみ）'],
   ['include_gmail', 'true', 'Gmailを取得するか（true/false）'],
   ['include_drive', 'true', 'Driveを取得するか（true/false）'],
   ['include_tasks', 'true', 'Tasksを取得するか（true/false）']
