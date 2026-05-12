@@ -153,14 +153,9 @@ function createActivityCardFromCalendarEvent(event, targetDate) {
  */
 function getDayRange(targetDate) {
   const tz = Session.getScriptTimeZone();
-  const startOfDay = new Date(Utilities.formatDate(
-    new Date(targetDate + 'T00:00:00'), tz, "yyyy-MM-dd'T'00:00:00"
-  ));
-  // JavaScriptのDateパース
-  const parts = targetDate.split('-').map(Number);
-  const start = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
-  const end = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
-  return { startOfDay: start, endOfDay: end };
+  const startOfDay = Utilities.parseDate(targetDate + ' 00:00:00', tz, 'yyyy-MM-dd HH:mm:ss');
+  const endOfDay   = Utilities.parseDate(targetDate + ' 23:59:59', tz, 'yyyy-MM-dd HH:mm:ss');
+  return { startOfDay, endOfDay };
 }
 
 /**
