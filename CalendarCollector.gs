@@ -46,33 +46,59 @@ function collectCalendarActivities(targetDate) {
  * 取得対象カレンダーのリストを返す
  * - デフォルト: プライマリカレンダー（自分のメインカレンダー）のみ
  * - config の extra_calendar_ids でカレンダーIDをカンマ区切り追加可能
+ *
+ * getAllCalendars() で全カレンダーを取得してIDでフィルタリングする。
+ * getCalendarById() は登録方法によっては null を返すため使用しない。
  */
 function buildTargetCalendars() {
-  const calendars = [];
+  const defaultCal = CalendarApp.getDefaultCalendar();
+  const defaultId = defaultCal.getId();
 
-  // プライマリカレンダー（自分のカレンダー）
-  calendars.push(CalendarApp.getDefaultCalendar());
-
-  // configで追加指定されたカレンダーID
   const extraIds = getConfigValue('extra_calendar_ids', '');
-  if (extraIds) {
-    extraIds.split(',').forEach(id => {
-      const trimmed = id.trim();
-      if (!trimmed) return;
-      try {
-        const cal = CalendarApp.getCalendarById(trimmed);
-        if (cal) {
-          calendars.push(cal);
-        } else {
-          logWarn('buildTargetCalendars', `Calendar not found: ${trimmed}`, '');
-        }
-      } catch (e) {
-        logError('buildTargetCalendars', `Failed to get calendar: ${trimmed}`, e);
-      }
-    });
+  if (!extraIds.trim()) {
+    return [defaultCal];
   }
 
-  return calendars;
+  // 対象IDのセット（プライマリ + extra_calendar_ids）
+  const targetIds = new Set([defaultId]);
+  extraIds.split(',').forEach(id => {
+    const trimmed = id.trim();
+    if (trimmed) targetIds.add(trimmed);
+  });
+
+  // getAllCalendars() から対象IDのみ抽出（getCalendarById()より確実）
+  const all = CalendarApp.getAllCalendars();
+  const matched = all.filter(cal => targetIds.has(cal.getId()));
+
+  // extra_calendar_idsで指定したIDのうち見つからなかったものをログに記録
+  const foundIds = new Set(matched.map(cal => cal.getId()));
+  targetIds.forEach(id => {
+    if (!foundIds.has(id)) {
+      logWarn('buildTargetCalendars',
+        `Calendar not found in your calendar list: ${id}`,
+        'メニュー「カレンダー一覧を確認」で利用可能なIDを確認してください');
+    }
+  });
+
+  return matched.length > 0 ? matched : [defaultCal];
+}
+
+/**
+ * Googleカレンダーに登録されている全カレンダーの名前とIDをダイアログに表示する
+ * メニュー「カレンダー一覧を確認」から呼ばれる
+ */
+function listAvailableCalendars() {
+  const calendars = CalendarApp.getAllCalendars();
+  const lines = calendars.map(cal => `${cal.getName()}\n  → ${cal.getId()}`);
+  const message = lines.join('\n\n');
+
+  const ui = SpreadsheetApp.getUi();
+  // ダイアログの文字数制限があるため長い場合はlogsシートにも出力
+  logInfo('listAvailableCalendars', 'Available calendars', lines.join(' | '));
+  ui.alert(
+    '📅 利用可能なカレンダー一覧\n\n' + message +
+    '\n\nconfigシートの extra_calendar_ids に追加したいカレンダーのIDをカンマ区切りで入力してください。'
+  );
 }
 
 /**

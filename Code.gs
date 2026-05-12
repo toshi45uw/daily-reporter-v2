@@ -14,6 +14,7 @@ function onOpen() {
     .addItem('📥 今日の活動を取得', 'collectTodayActivities')
     .addItem('📝 日報を生成', 'generateDailyReportMenu')
     .addSeparator()
+    .addItem('📅 カレンダー一覧を確認', 'listAvailableCalendars')
     .addItem('🕐 明細ログを確認', 'openLogsSheet')
     .addItem('⏰ トリガーを設定', 'createDailyTrigger')
     .addToUi();
