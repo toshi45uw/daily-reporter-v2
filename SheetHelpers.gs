@@ -4,7 +4,7 @@
  */
 
 /**
- * activity_cardsシートにActivityCardオブジェクトの配列を書き込む
+ * activity_cardsシートのActivityCardオブジェクトの配列を書き込む
  * 同日・同sourceの既存レコードを削除してから書き込む（重複防止）
  */
 function saveActivityCards(cards) {
@@ -65,9 +65,14 @@ function cardToRow(card) {
  */
 function deleteCardsByDateAndSource(sheet, date, source) {
   const data = sheet.getDataRange().getValues();
+  const tz = Session.getScriptTimeZone();
   // 後ろから削除（行番号ずれ防止）
   for (let i = data.length - 1; i >= 1; i--) {
-    if (data[i][1] === date && data[i][2] === source) {
+    const rawDate = data[i][1];
+    const rowDate = rawDate instanceof Date
+      ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+      : String(rawDate);
+    if (rowDate === date && data[i][2] === source) {
       sheet.deleteRow(i + 1);
     }
   }
@@ -86,11 +91,16 @@ function getIncludedCards(targetDate) {
   const colIndex = {};
   headers.forEach((h, i) => { colIndex[h] = i; });
 
+  const tz = Session.getScriptTimeZone();
+
   return data.slice(1)
     .filter(row => {
-      const rowDate = row[colIndex['date']];
+      const rawDate = row[colIndex['date']];
+      const rowDate = rawDate instanceof Date
+        ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+        : String(rawDate);
       const include = row[colIndex['include_in_report']];
-      return String(rowDate) === targetDate && (include === true || String(include).toLowerCase() === 'true');
+      return rowDate === targetDate && (include === true || String(include).toLowerCase() === 'true');
     })
     .map(row => rowToCard(row, colIndex));
 }
@@ -171,7 +181,7 @@ function saveNextActions(actions) {
 }
 
 /**
- * UUIDライクなIDを生成する（GAS標準ライブラリ不使用）
+ * UUIDライクIDを生成する（GAS標準ライブラリ不使用）
  */
 function generateId(prefix) {
   const ts = new Date().getTime().toString(36);
