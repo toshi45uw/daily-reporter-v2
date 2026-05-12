@@ -44,9 +44,9 @@ function collectDriveActivities(targetDate) {
   const { startOfDay, endOfDay } = getDayRange(targetDate);
   const afterStr = startOfDay.toISOString();
 
-  // drive_my_files_only=true（デフォルト）のとき、自分が編集したファイルのみ取得
+  // drive_my_files_only=true（デフォルト）のとき、自分が所有するファイルのみ取得
   const myFilesOnly = getConfigBool('drive_my_files_only', true);
-  const ownerFilter = myFilesOnly ? ' and modifiedByMe = true' : '';
+  const ownerFilter = myFilesOnly ? " and 'me' in owners" : '';
 
   const mimeQuery = TARGET_MIME_TYPES.map(m => `mimeType = '${m}'`).join(' or ');
   const query = `(${mimeQuery}) and modifiedDate >= '${afterStr}'${ownerFilter} and trashed = false`;
