@@ -16,11 +16,18 @@ function getAllConfig() {
   if (!sheet) return {};
 
   const data = sheet.getDataRange().getValues();
+  const tz = Session.getScriptTimeZone();
   const config = {};
   data.slice(1).forEach(row => {
     const key = row[0];
     const value = row[1];
-    if (key) config[key] = String(value);
+    if (!key) return;
+    // Sheetsが日付型として解釈したセルはISO文字列に変換する
+    if (value instanceof Date) {
+      config[key] = Utilities.formatDate(value, tz, 'yyyy-MM-dd');
+    } else {
+      config[key] = String(value);
+    }
   });
 
   _configCache = config;

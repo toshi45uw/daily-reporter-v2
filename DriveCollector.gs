@@ -42,7 +42,7 @@ function collectDriveActivities(targetDate) {
   const cards = [];
 
   const { startOfDay, endOfDay } = getDayRange(targetDate);
-  const afterStr = Utilities.formatDate(startOfDay, 'UTC', "yyyy-MM-dd'T'HH:mm:ss'Z'");
+  const afterStr = startOfDay.toISOString();
 
   // DriveAppのsearchFilesはクォータ効率が良い
   // modifiedDate で当日以降を絞り込む
