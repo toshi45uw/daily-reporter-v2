@@ -5,13 +5,18 @@
 
 /**
  * 指定日のカレンダー予定を取得してActivityCard配列を返す
+ *
+ * デフォルトはプライマリカレンダー（自分のカレンダー）のみ。
+ * config の extra_calendar_ids にカンマ区切りでカレンダーIDを追加すると
+ * 指定したカレンダーも取得対象に含めることができる。
  */
 function collectCalendarActivities(targetDate) {
   const cards = [];
   const { startOfDay, endOfDay } = getDayRange(targetDate);
 
-  // デフォルトカレンダー
-  const calendars = CalendarApp.getAllCalendars();
+  const calendars = buildTargetCalendars();
+  logInfo('collectCalendarActivities', `Target calendars: ${calendars.map(c => c.getName()).join(', ')}`, '');
+
   calendars.forEach(calendar => {
     try {
       const events = calendar.getEvents(startOfDay, endOfDay);
@@ -28,7 +33,46 @@ function collectCalendarActivities(targetDate) {
     }
   });
 
-  return cards;
+  // 同一イベントIDの重複を除去（複数カレンダーに同じ予定が現れる場合）
+  const seen = new Set();
+  return cards.filter(c => {
+    if (seen.has(c.rawId)) return false;
+    seen.add(c.rawId);
+    return true;
+  });
+}
+
+/**
+ * 取得対象カレンダーのリストを返す
+ * - デフォルト: プライマリカレンダー（自分のメインカレンダー）のみ
+ * - config の extra_calendar_ids でカレンダーIDをカンマ区切り追加可能
+ */
+function buildTargetCalendars() {
+  const calendars = [];
+
+  // プライマリカレンダー（自分のカレンダー）
+  calendars.push(CalendarApp.getDefaultCalendar());
+
+  // configで追加指定されたカレンダーID
+  const extraIds = getConfigValue('extra_calendar_ids', '');
+  if (extraIds) {
+    extraIds.split(',').forEach(id => {
+      const trimmed = id.trim();
+      if (!trimmed) return;
+      try {
+        const cal = CalendarApp.getCalendarById(trimmed);
+        if (cal) {
+          calendars.push(cal);
+        } else {
+          logWarn('buildTargetCalendars', `Calendar not found: ${trimmed}`, '');
+        }
+      } catch (e) {
+        logError('buildTargetCalendars', `Failed to get calendar: ${trimmed}`, e);
+      }
+    });
+  }
+
+  return calendars;
 }
 
 /**
