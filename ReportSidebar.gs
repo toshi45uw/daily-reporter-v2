@@ -7,7 +7,7 @@
  * サイドバーを開く（メニューから呼ばれる）
  */
 function openReportSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('ReportSidebar')
+  const html = HtmlService.createHtmlOutputFromFile('SidebarReport')
     .setTitle('✨ Geminiで日報をブラッシュアップ')
     .setWidth(420);
   SpreadsheetApp.getUi().showSidebar(html);
