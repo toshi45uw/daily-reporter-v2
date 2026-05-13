@@ -13,6 +13,7 @@ function onOpen() {
     .addSeparator()
     .addItem('📥 今日の活動を取得', 'collectTodayActivities')
     .addItem('📝 日報を生成', 'generateDailyReportMenu')
+    .addItem('✨ Geminiでブラッシュアップ', 'openReportSidebar')
     .addSeparator()
     .addItem('📅 カレンダー一覧を確認', 'listAvailableCalendars')
     .addItem('🕐 明細ログを確認', 'openLogsSheet')
@@ -43,7 +44,7 @@ function openLogsSheet() {
 }
 
 /**
- * 毎日18:00前後にcollectTodayActivitiesを自動実行するトリガーを作成する
+ * 毎日18:00前後のcollectTodayActivitiesを自動実行するトリガーを作成する
  */
 function createDailyTrigger() {
   // 既存トリガーを削除

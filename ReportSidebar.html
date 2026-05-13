@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; font-size: 13px; }
+
+    body {
+      display: flex; flex-direction: column; height: 100vh;
+      padding: 8px; gap: 6px; background: #f8f9fa;
+    }
+
+    #header { flex-shrink: 0; }
+    #header h3 { color: #1a73e8; font-size: 14px; }
+    #date-label { color: #666; font-size: 11px; margin-top: 2px; }
+    #status { color: #f29900; font-size: 11px; min-height: 15px; margin-top: 2px; }
+
+    #chat-section { flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; }
+    #chat-history {
+      height: 170px; overflow-y: auto;
+      border: 1px solid #dadce0; border-radius: 6px;
+      padding: 6px; background: #fff;
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .chat-msg {
+      padding: 6px 9px; border-radius: 8px;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.45;
+      max-width: 95%;
+    }
+    .chat-msg.assistant { background: #e8f0fe; color: #1a1a1a; align-self: flex-start; }
+    .chat-msg.user      { background: #1a73e8; color: #fff;    align-self: flex-end; }
+    .chat-msg.error     { background: #fce8e6; color: #c5221f; }
+    .chat-msg a         { color: #1a73e8; }
+
+    #input-row { display: flex; gap: 4px; }
+    #user-input {
+      flex: 1; padding: 6px 8px;
+      border: 1px solid #dadce0; border-radius: 6px;
+      resize: none; font-size: 12px; line-height: 1.4;
+    }
+    #user-input:focus { outline: none; border-color: #1a73e8; }
+    #send-btn {
+      padding: 6px 12px; background: #1a73e8; color: #fff;
+      border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
+      align-self: flex-end;
+    }
+    #send-btn:disabled { background: #bdc1c6; cursor: default; }
+
+    #report-section { flex: 1; display: flex; flex-direction: column; gap: 3px; min-height: 0; }
+    #report-label { font-weight: bold; font-size: 11px; color: #3c4043; }
+    #report-body {
+      flex: 1; padding: 7px; min-height: 0;
+      border: 1px solid #dadce0; border-radius: 6px;
+      resize: none; font-size: 12px; line-height: 1.6;
+    }
+    #report-body:focus { outline: none; border-color: #1a73e8; }
+
+    #save-btn {
+      flex-shrink: 0; padding: 9px;
+      background: #0f9d58; color: #fff;
+      border: none; border-radius: 6px;
+      cursor: pointer; font-weight: bold; font-size: 13px;
+    }
+    #save-btn:disabled { background: #bdc1c6; cursor: default; }
+  </style>
+</head>
+<body>
+
+  <div id="header">
+    <h3>✨ Geminiで日報ブラッシュアップ</h3>
+    <div id="date-label">読み込み中...</div>
+    <div id="status"></div>
+  </div>
+
+  <div id="chat-section">
+    <div id="chat-history"></div>
+    <div id="input-row">
+      <textarea id="user-input" rows="2"
+        placeholder="指示を入力（例: もっと簡潔に / 課題を詳しく / フォーマルな文体に）"
+      ></textarea>
+      <button id="send-btn" onclick="sendMessage()">送信</button>
+    </div>
+  </div>
+
+  <div id="report-section">
+    <div id="report-label">📄 日報本文（直接編集も可）</div>
+    <textarea id="report-body"></textarea>
+  </div>
+
+  <button id="save-btn" onclick="saveReport()">💾 Google Docs に保存</button>
+
+  <script>
+    var chatHistory = [];
+    var systemPrompt = '';
+    var targetDate = '';
+
+    window.onload = function() {
+      setStatus('読み込み中...');
+      google.script.run
+        .withSuccessHandler(onDraftLoaded)
+        .withFailureHandler(onError)
+        .getReportDraftForSidebar();
+    };
+
+    function onDraftLoaded(data) {
+      setStatus('');
+      if (data.error) { addMsg('error', data.error); return; }
+      document.getElementById('date-label').textContent = '対象日: ' + data.targetDate;
+      document.getElementById('report-body').value = data.draft;
+      systemPrompt = data.systemPrompt;
+      targetDate = data.targetDate;
+      addMsg('assistant',
+        '初稿を生成しました！\n' +
+        'チャットで指示するたびに日報本文が更新されます。\n' +
+        '例:「もっと簡潔に」「課題セクションを充実させて」「全体をフォーマルな文体に」'
+      );
+    }
+
+    function sendMessage() {
+      var input = document.getElementById('user-input');
+      var msg = input.value.trim();
+      if (!msg) return;
+
+      var currentReport = document.getElementById('report-body').value;
+      var fullMsg = '現在の日報:\n' + currentReport + '\n\n指示: ' + msg;
+
+      addMsg('user', msg);
+      input.value = '';
+      setStatus('Gemini が考え中...');
+      setDisabled(true);
+
+      google.script.run
+        .withSuccessHandler(onGeminiReply)
+        .withFailureHandler(onError)
+        .chatWithGeminiForReport(systemPrompt, chatHistory, fullMsg);
+    }
+
+    function onGeminiReply(data) {
+      setStatus('');
+      setDisabled(false);
+      if (data.error) { addMsg('error', data.error); return; }
+      chatHistory = data.history;
+      document.getElementById('report-body').value = data.reply;
+      addMsg('assistant', '✅ 更新しました。さらに調整しますか？');
+    }
+
+    function saveReport() {
+      var body = document.getElementById('report-body').value.trim();
+      if (!body) { addMsg('error', '日報本文が空です。'); return; }
+      setStatus('Docs に保存中...');
+      document.getElementById('save-btn').disabled = true;
+      google.script.run
+        .withSuccessHandler(onSaved)
+        .withFailureHandler(onError)
+        .saveFinalReportFromSidebar(body, targetDate);
+    }
+
+    function onSaved(data) {
+      setStatus('');
+      document.getElementById('save-btn').disabled = false;
+      if (data.error) { addMsg('error', data.error); return; }
+      var div = document.createElement('div');
+      div.className = 'chat-msg assistant';
+      div.innerHTML =
+        '✅ 保存しました！<br>' +
+        '<strong>' + esc(data.reportTitle) + '</strong><br>' +
+        '<a href="' + esc(data.docUrl) + '" target="_blank">Google Docs を開く →</a>';
+      appendToHistory(div);
+    }
+
+    function addMsg(role, text) {
+      var div = document.createElement('div');
+      div.className = 'chat-msg ' + role;
+      div.textContent = text;
+      appendToHistory(div);
+    }
+
+    function appendToHistory(el) {
+      var hist = document.getElementById('chat-history');
+      hist.appendChild(el);
+      hist.scrollTop = hist.scrollHeight;
+    }
+
+    function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+    function setDisabled(v) {
+      document.getElementById('send-btn').disabled = v;
+      document.getElementById('user-input').disabled = v;
+    }
+
+    function onError(err) {
+      setStatus('');
+      setDisabled(false);
+      document.getElementById('save-btn').disabled = false;
+      addMsg('error', 'エラー: ' + (err.message || String(err)));
+    }
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('user-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+  <\/script>
+</body>
+</html>
