@@ -97,6 +97,7 @@
 
     window.onload = function() {
       setStatus('読み込み中...');
+      document.getElementById('date-label').textContent = 'activity_cardsシートから初稿を生成中...';
       google.script.run
         .withSuccessHandler(onDraftLoaded)
         .withFailureHandler(onError)
@@ -105,7 +106,11 @@
 
     function onDraftLoaded(data) {
       setStatus('');
-      if (data.error) { addMsg('error', data.error); return; }
+      if (data.error) {
+        document.getElementById('date-label').textContent = '読み込み失敗';
+        addMsg('error', data.error);
+        return;
+      }
       document.getElementById('date-label').textContent = '対象日: ' + data.targetDate;
       document.getElementById('report-body').value = data.draft;
       systemPrompt = data.systemPrompt;
@@ -190,10 +195,13 @@
     }
 
     function onError(err) {
-      setStatus('');
+      setStatus('エラーが発生しました');
       setDisabled(false);
       document.getElementById('save-btn').disabled = false;
-      addMsg('error', 'エラー: ' + (err.message || String(err)));
+      document.getElementById('date-label').textContent = '読み込み失敗';
+      var msg = err && (err.message || String(err)) || '不明なエラー';
+      addMsg('error', 'エラー: ' + msg);
+      console.error('GAS error:', err);
     }
 
     function esc(s) {
