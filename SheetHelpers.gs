@@ -21,14 +21,26 @@ function saveActivityCards(cards) {
   lock.waitLock(10000);
 
   try {
-    // 同日・同sourceの行を削除
+    // 同日・同sourceの既存ユーザー編集値を保持
+    const existingMap = buildEditableStateMap(sheet, cards[0].date, cards[0].source);
+
+    // 同日・同sourceの行を削除して再作成（重複防止 + 最新化）
     if (sheet.getLastRow() > 1) {
       const date = cards[0].date;
       const source = cards[0].source;
       deleteCardsByDateAndSource(sheet, date, source);
     }
 
-    const rows = cards.map(cardToRow);
+    const rows = cards.map(card => {
+      const editable = existingMap[getCardStableKey(card)] || {};
+      const merged = Object.assign({}, card, {
+        includeInReport: editable.includeInReport !== undefined ? editable.includeInReport : card.includeInReport,
+        userNote: editable.userNote !== undefined ? editable.userNote : card.userNote,
+        status: editable.status !== undefined ? editable.status : card.status
+      });
+      return cardToRow(merged);
+    });
+
     const lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, rows.length, rows[0].length).setValues(rows);
   } finally {
@@ -36,6 +48,52 @@ function saveActivityCards(cards) {
   }
 }
 
+
+/**
+ * 同日・同sourceの既存カードから、ユーザー編集列をキー付きで抽出する
+ */
+function buildEditableStateMap(sheet, date, source) {
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return {};
+
+  const headers = data[0];
+  const colIndex = {};
+  headers.forEach((h, i) => { colIndex[h] = i; });
+  const tz = Session.getScriptTimeZone();
+
+  const map = {};
+  data.slice(1).forEach(row => {
+    const rawDate = row[colIndex['date']];
+    const rowDate = rawDate instanceof Date
+      ? Utilities.formatDate(rawDate, tz, 'yyyy-MM-dd')
+      : String(rawDate);
+    const rowSource = row[colIndex['source']];
+    if (rowDate !== date || rowSource !== source) return;
+
+    const key = getCardStableKey({
+      rawId: row[colIndex['raw_id']],
+      source: rowSource,
+      type: row[colIndex['type']],
+      title: row[colIndex['title']],
+      startTime: row[colIndex['start_time']]
+    });
+
+    map[key] = {
+      includeInReport: row[colIndex['include_in_report']],
+      userNote: row[colIndex['user_note']],
+      status: row[colIndex['status']]
+    };
+  });
+  return map;
+}
+
+/**
+ * 再取得時のマージ用に安定キーを返す
+ */
+function getCardStableKey(card) {
+  if (card.rawId) return `raw:${card.rawId}`;
+  return `fallback:${card.source || ''}:${card.type || ''}:${card.title || ''}:${card.startTime || ''}`;
+}
 /**
  * ActivityCardオブジェクトをシート行配列に変換する
  */
