@@ -156,7 +156,7 @@ function buildReportBody(cards, targetDate) {
 
 ### activity_cards
 活動カードを保存します。`include_in_report` と `user_note` をユーザーが編集します。
-同日・同 source の取得を再実行すると上書きされます（`user_note` は消えるので注意）。
+同日・同 source の取得を再実行しても、既存カードに対応する `include_in_report` / `user_note` / `status` は保持されます。
 
 ### daily_reports
 生成済み日報の履歴を保存します。Doc URL と本文テキストが含まれます。
