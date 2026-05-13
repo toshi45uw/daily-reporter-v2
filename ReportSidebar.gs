@@ -7,10 +7,15 @@
  * サイドバーを開く（メニューから呼ばれる）
  */
 function openReportSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('SidebarReport')
-    .setTitle('✨ Geminiで日報をブラッシュアップ')
-    .setWidth(420);
-  SpreadsheetApp.getUi().showSidebar(html);
+  try {
+    const html = HtmlService.createHtmlOutputFromFile('SidebarReport')
+      .setTitle('✨ Geminiで日報をブラッシュアップ')
+      .setWidth(420);
+    SpreadsheetApp.getUi().showSidebar(html);
+  } catch (e) {
+    logError('openReportSidebar', 'Failed to open sidebar', e);
+    SpreadsheetApp.getUi().alert('サイドバーを開けませんでした。\n\n' + e.message);
+  }
 }
 
 /**
